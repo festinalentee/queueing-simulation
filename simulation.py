@@ -5,12 +5,13 @@ from event import Event
 from customer import Customer
 from server import Server
 
+
 class Simulation:
-    def __init__(self, arrival_rate, service_rate, num_customers, num_servers, servers_speed):
+    def __init__(self, arrival_rate, service_rate, num_servers, num_customers, servers_speed):
         self.arrival_rate = arrival_rate
         self.service_rate = service_rate
-        self.num_customers = num_customers
         self.num_servers = num_servers
+        self.num_customers = num_customers
         self.servers_speed = servers_speed
         self.current_customers = 0
         self.servers = self.initialize_servers(self.get_service_rates())
@@ -21,15 +22,15 @@ class Simulation:
         self.max_time_spent = 0
         self.queue_size = [0]
     
-    def get_interarrival_time(self, arrival_rate):
-        return random.expovariate(arrival_rate)
-    
+    def get_interarrival_time(self):
+        return random.expovariate(self.arrival_rate)
+
     def get_service_time(self, service_rate):
         return random.expovariate(service_rate)
 
     def get_service_rates(self):
         service_rates = []
-        for i in range(self.num_servers):
+        for i in range(1, self.num_servers + 1):
             if self.servers_speed == 'same':
                 service_rates.append(self.service_rate)
             if self.servers_speed == 'different_1':
@@ -41,7 +42,7 @@ class Simulation:
         return service_rates
 
     def initialize_servers(self, service_rates):
-        return [Server(i, service_rates[i], False, None, 0, 0) for i in range(self.num_servers)]
+        return [Server(i, service_rates[i], False, None, 0, 0, 0) for i in range(self.num_servers)]
 
     def initialize_customers(self):
         return [Customer(i, 0, 0, 0, None) for i in range(self.num_customers)]
@@ -52,24 +53,30 @@ class Simulation:
     def select_server_uniformly(self):
         return random.choice(self.servers)
     
-    def select_server_uniformly_with_power_of_d_choices(self, d_choices, servers_speed):
-        d_servers = random.sample(self.servers, d_choices)
-        minimum_load = min(server.current_load for server in d_servers)
-        servers_with_equal_load = [server for server in d_servers if server.current_load == minimum_load]
-        if servers_speed == 'different':
-            fastest_from_equal_load = [server for server in servers_with_equal_load if server.service_time == min(server.service_time for server in servers_with_equal_load)]
-            return fastest_from_equal_load[0]
+    def select_server_uniformly_with_power_of_d_choices(self, d_choices):
+        if d_choices > len(self.servers):
+            d_servers = self.servers
         else:
+            d_servers = random.sample(self.servers, d_choices)
+        if self.servers_speed == 'same':
+            min_load = min(server.current_load for server in d_servers)
+            servers_with_equal_load = [server for server in d_servers if server.current_load == min_load]
             return random.choice(servers_with_equal_load)
-            # Try choose first from list server_with_equal_load
+        elif self.servers_speed.startswith('different'):
+            for server in d_servers:
+                server.total_queue_time = server.current_load * server.service_rate
+            min_total_queue_time = min(server.total_queue_time for server in d_servers)
+            servers_with_equal_total_queue_time = [server for server in d_servers if server.total_queue_time == min_total_queue_time]
+            return random.choice(servers_with_equal_total_queue_time)
+            
 
-    def run(self, scenario, d_choices, servers_speed):
+    def run(self, scenario, d_choices):
         self.schedule_new_event(0, 0, None, 'arrival')
-        interarrival_time = self.get_interarrival_time(self.arrival_rate)
 
         while self.event_queue:
             event = heapq.heappop(self.event_queue) # time, customer_id, assigned_server_id, type
-        
+            interarrival_time = self.get_interarrival_time()
+
             if event.type == 'arrival':
                 self.current_customers += 1
 
@@ -81,7 +88,7 @@ class Simulation:
                     choosen_server = self.select_server_uniformly()
                 
                 elif scenario == 'uniform server selection with power of d-choices':
-                    choosen_server = self.select_server_uniformly_with_power_of_d_choices(d_choices, servers_speed)
+                    choosen_server = self.select_server_uniformly_with_power_of_d_choices(d_choices)
                 else:
                     raise Exception('Unknown scenario')
 

@@ -1,13 +1,14 @@
 import random
 
 class Server:
-    def __init__(self, server_id, service_rate, is_busy, busy_until, current_load, total_load):
+    def __init__(self, server_id, service_rate, is_busy, busy_until, current_load, total_load, total_queue_time):
         self.server_id = server_id
         self.service_rate = service_rate
         self.is_busy = is_busy
         self.busy_until = busy_until
         self.current_load = current_load
         self.total_load = total_load
+        self.total_queue_time = total_queue_time
     
     def start_serving(self, time, service_time):
         self.is_busy = True
