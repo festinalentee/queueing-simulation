@@ -20,10 +20,12 @@ class Simulation:
         self.waiting_queue = []
         self.total_time_spent = 0
         self.max_time_spent = 0
-        self.queue_size = [0]
+        self.busy_servers = 0 
+        self.queue_size = []
+        self.interarrivals = []
     
-    def get_interarrival_time(self):
-        return random.expovariate(self.arrival_rate)
+    def get_interarrival_time(self, arrival_rate):
+        return random.expovariate(arrival_rate)
 
     def get_service_time(self, service_rate):
         return random.expovariate(service_rate)
@@ -54,10 +56,7 @@ class Simulation:
         return random.choice(self.servers)
     
     def select_server_uniformly_with_power_of_d_choices(self, d_choices):
-        if d_choices > len(self.servers):
-            d_servers = self.servers
-        else:
-            d_servers = random.sample(self.servers, d_choices)
+        d_servers = random.sample(self.servers, d_choices)
         if self.servers_speed == 'same':
             min_load = min(server.current_load for server in d_servers)
             servers_with_equal_load = [server for server in d_servers if server.current_load == min_load]
@@ -75,15 +74,15 @@ class Simulation:
 
         while self.event_queue:
             event = heapq.heappop(self.event_queue) # time, customer_id, assigned_server_id, type
-            interarrival_time = self.get_interarrival_time()
-
+            
+            interarrival_time = self.get_interarrival_time(self.num_servers / self.arrival_rate)
+            self.interarrivals.append(interarrival_time)
             if event.type == 'arrival':
                 self.current_customers += 1
 
                 if self.current_customers < self.num_customers:
                     # Schedule next customer arrival
                     self.schedule_new_event(event.time + interarrival_time, event.customer_id + 1, None, 'arrival')
-                
                 if scenario == 'uniform server selection':
                     choosen_server = self.select_server_uniformly()
                 
@@ -107,8 +106,7 @@ class Simulation:
                     self.schedule_new_event(choosen_server.busy_until, event.customer_id, choosen_server.server_id, 'departure')
                 else:
                     # If the chosen server is busy, add a customer to the waiting queue
-                    self.waiting_queue.append(customer)
-                    self.queue_size.append(len(self.waiting_queue))  
+                    self.waiting_queue.append(customer) 
             
             elif event.type == 'departure': 
                 server = self.servers[event.assigned_server_id]
@@ -127,9 +125,13 @@ class Simulation:
                         # Remove customer from the waiting queue
                         self.waiting_queue.remove(waiting_customer)
                         break   
+            
+            busy_servers = sum(server.is_busy for server in self.servers)
+            self.queue_size.append(len(self.waiting_queue) / busy_servers) if busy_servers >= 1 else self.queue_size.append(0)
+
 
         avg_time_spent = (self.total_time_spent) / (self.current_customers)
-        server_utilization = [round((server.total_load / self.current_customers) * 100, 4) for server in self.servers]
+        server_utilization = [server.total_load for server in self.servers]
         avg_queue_size = np.mean(self.queue_size)
 
         return avg_time_spent, self.max_time_spent, server_utilization, avg_queue_size
