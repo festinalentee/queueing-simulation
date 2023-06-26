@@ -73,9 +73,9 @@ class Simulation:
         self.schedule_new_event(0, 0, None, 'arrival')
 
         while self.event_queue:
-            event = heapq.heappop(self.event_queue) # time, customer_id, assigned_server_id, type
+            event = heapq.heappop(self.event_queue)
             
-            interarrival_time = self.get_interarrival_time(self.num_servers / self.arrival_rate)
+            interarrival_time = self.get_interarrival_time(self.num_servers * self.arrival_rate)
             self.interarrivals.append(interarrival_time)
             if event.type == 'arrival':
                 self.current_customers += 1
